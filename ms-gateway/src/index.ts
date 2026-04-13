@@ -34,7 +34,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const promo = result.envelope.payload as unknown as SalePublishedPayload;
+    const promo = result.envelope.payload as SalePublishedPayload;
     addPublishedPromo(promo);
     console.log(
       `\n[Nova promoção publicada] ${promo.title} - R$${promo.salePrice.toFixed(2)}`,

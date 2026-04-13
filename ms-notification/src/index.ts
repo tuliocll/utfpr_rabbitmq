@@ -27,7 +27,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const promo = result.envelope.payload as unknown as SalePublishedPayload;
+    const promo = result.envelope.payload as SalePublishedPayload;
     const routingKey = ROUTING_KEYS.category(promo.category);
 
     const notification = JSON.stringify({
