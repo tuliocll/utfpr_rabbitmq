@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { generateKeyPair } from "./shared/src/crypto";
 
 const KEYS_DIR = join(import.meta.dir, "keys");
-const PRODUCERS = ["gateway", "promotion", "ranking"];
+const PRODUCERS = ["gateway", "promotion", "ranking", "store"];
 
 if (!existsSync(KEYS_DIR)) {
   mkdirSync(KEYS_DIR, { recursive: true });

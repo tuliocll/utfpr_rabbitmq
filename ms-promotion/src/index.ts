@@ -14,20 +14,20 @@ async function main(): Promise<void> {
   console.log("=== MS Promotion ===\n");
 
   const privatePem = loadKey("promotion_private.pem");
-  const gatewayPubPem = loadKey("gateway_public.pem");
+  const storePubPem = loadKey("store_public.pem");
 
   await connectRabbit(process.env.RABBITMQ_URL);
   console.log("Conectado ao RabbitMQ.");
 
   await consume("fila_promocao", ROUTING_KEYS.RECEBIDA, (msg) => {
-    if (!gatewayPubPem) {
+    if (!storePubPem) {
       console.warn(
-        "Evento recebido mas sem chave pública do Gateway. Descartando.",
+        "Evento recebido mas sem chave pública do Store. Descartando.",
       );
       return;
     }
 
-    const result = open(msg, gatewayPubPem);
+    const result = open(msg, storePubPem);
 
     if (!result.ok) {
       console.warn("Assinatura inválida em promocao.recebida. Descartando.");

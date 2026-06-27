@@ -1,3 +1,4 @@
+import "./db/connection";
 import {
   open,
   seal,
@@ -9,22 +10,15 @@ import {
   type SaleVotePayload,
   type SalePayload,
 } from "shared";
+import * as ScoreRepo from "./db/score.repository";
+import type { ScoreUpdatePayload } from "shared/src/types";
 
 const HOT_DEAL_THRESHOLD = 5;
-
-interface SaleScore extends SalePayload {
-  upvotes: number;
-  downvotes: number;
-  isHotDeal: boolean;
-}
-
-const scores = new Map<string, SaleScore>();
 
 async function main(): Promise<void> {
   console.log("=== MS Ranking ===\n");
 
   const privatePem = loadKey("ranking_private.pem");
-
   const gatewayPubPem = loadKey("gateway_public.pem");
   const promotionPubPem = loadKey("promotion_public.pem");
   console.log("Chaves carregadas.");
@@ -41,16 +35,8 @@ async function main(): Promise<void> {
     }
 
     const payload = result.envelope.payload as any;
-
-    if (!scores.has(payload.id)) {
-      scores.set(payload.id, {
-        ...payload,
-        upvotes: 0,
-        downvotes: 0,
-        isHotDeal: false,
-      });
-      console.log(`Promoção registrada no ranking: "${payload.title}"`);
-    }
+    ScoreRepo.register(payload);
+    console.log(`Promoção registrada no ranking: "${payload.title}"`);
   });
 
   await consume("fila_ranking", ROUTING_KEYS.VOTO, (msg) => {
@@ -61,7 +47,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const vote = result.envelope.payload as SaleVotePayload;
+    const vote = result.envelope.payload as unknown as SaleVotePayload;
     processVote(vote, privatePem);
   });
 
@@ -69,7 +55,7 @@ async function main(): Promise<void> {
 }
 
 function processVote(vote: SaleVotePayload, privatePem: string): void {
-  let promo = scores.get(vote.saleId);
+  const promo = ScoreRepo.findById(vote.saleId);
 
   if (!promo) {
     console.warn(
@@ -78,19 +64,27 @@ function processVote(vote: SaleVotePayload, privatePem: string): void {
     return;
   }
 
-  if (vote.vote === "up") {
-    promo.upvotes++;
-  } else {
-    promo.downvotes++;
+  if (vote.previous === "up") {
+    ScoreRepo.removeUpvote(vote.saleId);
+  } else if (vote.previous === "down") {
+    ScoreRepo.removeDownvote(vote.saleId);
   }
 
-  const score = promo.upvotes - promo.downvotes;
+  if (vote.vote === "up") {
+    ScoreRepo.upvote(vote.saleId);
+  } else {
+    ScoreRepo.downvote(vote.saleId);
+  }
+
+  const updated = ScoreRepo.findById(vote.saleId)!;
+  const score = updated.upvotes - updated.downvotes;
+
   console.log(
-    `Voto ${vote.vote} em "${promo.title}" → score: ${score} (${promo.upvotes} / ${promo.downvotes})`,
+    `Voto ${vote.vote} em "${updated.title}" → score: ${score} (👍 ${updated.upvotes} / 👎 ${updated.downvotes})`,
   );
 
-  if (score >= HOT_DEAL_THRESHOLD && !promo.isHotDeal) {
-    promo.isHotDeal = true;
+  if (score >= HOT_DEAL_THRESHOLD && !updated.isHotDeal) {
+    ScoreRepo.markAsHotDeal(vote.saleId);
 
     const payload: SalePayload = {
       id: vote.saleId,
@@ -106,8 +100,22 @@ function processVote(vote: SaleVotePayload, privatePem: string): void {
     const envelope = seal("ranking", payload, privatePem);
     publish(ROUTING_KEYS.DESTAQUE, envelope);
 
-    console.log(`HOT DEAL: "${promo.title}" atingiu score ${score}!`);
+    console.log(`🔥 HOT DEAL: "${updated.title}" atingiu score ${score}!`);
   }
+
+  // Aqui é uma extensao que fiz
+  // para ter os dados atualizados e
+  // confiaveis do score, para que o gateway
+  // possa atualizar a interface do usuario
+  const scorePayload: ScoreUpdatePayload = {
+    promoId: vote.saleId,
+    upvotes: updated.upvotes,
+    downvotes: updated.downvotes,
+    isHotDeal: updated.isHotDeal || score >= HOT_DEAL_THRESHOLD,
+  };
+
+  const scoreEnvelope = seal("ranking", scorePayload, privatePem);
+  publish(ROUTING_KEYS.SCORE, scoreEnvelope);
 }
 
 main().catch((err) => {

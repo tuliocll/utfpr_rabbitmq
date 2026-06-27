@@ -1,5 +1,5 @@
 {
-  "name": "ms-gateway",
+  "name": "store",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "hono": "^4.12.27",
     "shared": "file:../shared"
   }
 }

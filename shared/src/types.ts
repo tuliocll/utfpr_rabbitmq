@@ -8,6 +8,13 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+export interface ScoreUpdatePayload {
+  promoId: string;
+  upvotes: number;
+  downvotes: number;
+  isHotDeal: boolean;
+}
+
 export interface SalePayload {
   id: string;
   title: string;
@@ -17,15 +24,18 @@ export interface SalePayload {
   salePrice: number;
   store: string;
   score?: number;
+  storeEmail: string;
 }
 
 export interface SalePublishedPayload extends SalePayload {
   publishedAt: string;
+  storeEmail: string;
 }
 
 export interface SaleVotePayload {
   saleId: string;
   vote: "up" | "down";
+  previous?: "up" | "down";
 }
 
 export const ROUTING_KEYS = {
@@ -33,8 +43,9 @@ export const ROUTING_KEYS = {
   PUBLICADA: "promocao.publicada",
   VOTO: "promocao.voto",
   DESTAQUE: "promocao.destaque",
-  category: (cat: Category) => `promocao.${cat}`,
-  categoryDestaque: (cat: Category) => `promocao.${cat}.destaque`,
+  category: (cat: Category) => `notificacao.${cat}`,
+  categoryDestaque: (cat: Category) => `notificacao.${cat}.destaque`,
+  SCORE: "ranking.score",
 } as const;
 
 export const EXCHANGE_NAME = "promocoes";
